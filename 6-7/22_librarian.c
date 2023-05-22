@@ -25,17 +25,20 @@
 
 #define SHM_SIZE 1024
 
-#define MYPORT 3492    // порт
+#define MYPORT 3495    // порт
 #define LOG_PORT 3491    // порт
 
 #define BACKLOG 10     // количество входящих соединений
 
 sem_t *sem_librarian;
 sem_t *sem_break;
+sem_t *sem_finish;
 int shm_fd;
 void *shm_ptr;
+int shm_fd_finish;
+void *shm_ptr_finish;
 
-char name[] = "fifo2.fifo";
+char name[] = "fifo3.fifo";
 
 void sigchld_handler(int s) {
     while(waitpid(-1, NULL, WNOHANG) > 0);
@@ -97,8 +100,27 @@ void *logThread(void *vargp) {
     (void)umask(0);
     mknod(name, S_IFIFO | 0666, 0);
 
+    sem_finish = sem_open("/finishsem2", O_CREAT, 0666, 1);
+
+    shm_fd_finish = shm_open("/shm_finish", O_CREAT | O_RDWR, 0666);
+    ftruncate(shm_fd_finish, SHM_SIZE);
+    shm_ptr_finish = mmap(NULL, SHM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd_finish, 0);
+    if (shm_ptr_finish == MAP_FAILED) {
+        perror("mmap");
+        exit(EXIT_FAILURE);
+    }
+
+    int* shm_arr_finish = (int*) shm_ptr_finish;
+
 
     while(1) {
+        sem_wait(sem_finish);
+        if (shm_arr_finish[0] == 1) {
+            sem_post(sem_finish);
+            break;
+        }
+        sem_post(sem_finish);
+
         sin_size = sizeof(struct sockaddr_in);
         if ((new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size)) == -1) {
             perror("accept");
@@ -114,6 +136,17 @@ void *logThread(void *vargp) {
             char buf[100] = {0};
             read(fd, buf, sizeof(buf));
 
+            // // check if buf == "FINISH"
+            if (strcmp(buf, "FINISH") == 0) {
+                printf("logger: FINISH\n");
+                sem_wait(sem_finish);
+                shm_arr_finish[0] = 1;
+                sem_post(sem_finish);
+                close(new_fd);
+                close(fd);
+                exit(0);
+            }
+
             // send to client
 
             if (send(new_fd, buf, sizeof(buf), 0) == -1) {
@@ -128,6 +161,13 @@ void *logThread(void *vargp) {
         }
         close(new_fd);  // основному процессу не нужно соединение
     }
+
+    close(sockfd);
+
+    sem_close(sem_finish);
+    sem_unlink("/finishsem2");
+    shm_unlink("/shm_finish");
+    munmap(shm_ptr_finish, SHM_SIZE);
 }
 
 
@@ -198,10 +238,10 @@ int main(int argc, char *argv[]) {
 
     struct sigaction act;
     act.sa_handler = sigint;
-    if (sigaction(SIGINT, &act, NULL) == -1) {
-        perror("sigaction");
-        exit(1);
-    }
+    // if (sigaction(SIGINT, &act, NULL) == -1) {
+    //     perror("sigaction");
+    //     exit(1);
+    // }
 
     int M = atoi(argv[1]);
     int N = atoi(argv[2]);
@@ -335,6 +375,20 @@ int main(int argc, char *argv[]) {
         printf("%d ", shm_array[i]);
     }
     printf("\n");
+
+    int fd;
+    if ((fd = open(name, O_WRONLY)) == -1) {
+        perror("open");
+        exit(EXIT_FAILURE);
+    }
+    char str[100] = "FINISH";
+    if (write(fd, str, sizeof(str)) == -1) {
+        perror("write");
+        exit(EXIT_FAILURE);
+    }
+    close(fd);
+
+    close(sockfd);
 
     sem_close(sem_librarian);
     sem_close(sem_break);

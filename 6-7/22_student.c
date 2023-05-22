@@ -9,7 +9,7 @@
 #include <sys/socket.h>
 #include <time.h>
 
-#define PORT 3492 // порт соединения
+#define PORT 3495 // порт соединения
 
 #define MAXDATASIZE 100 // максимальный объем пакета
 
@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
         printf("Отправлено байт: %d\n", bytes_sent);
 
         if (buf[K]+1 >= M * N) {
-            printf("%d > %d\n", buf[K], M*N);
+            printf("%d >= %d\n", buf[K]+1, M*N);
             break;
         }
 

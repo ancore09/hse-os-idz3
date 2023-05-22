@@ -57,6 +57,11 @@ int main(int argc, char *argv[])
         printf("Принято байт: %d\n", numbytes);
         printf("Принято сообщение: %s\n", buf);
 
+        if (strcmp(buf, "FINISH") == 0) {
+            close(sockfd);
+            break;
+        }
+
         close(sockfd);
     }
 
