@@ -25,8 +25,8 @@
 
 #define SHM_SIZE 1024
 
-#define MYPORT 3495    // порт
-#define LOG_PORT 3491    // порт
+int MYPORT = 3495    // порт
+int LOG_PORT = 3491    // порт
 
 #define BACKLOG 10     // количество входящих соединений
 
@@ -173,6 +173,12 @@ void *logThread(void *vargp) {
 
 int main(int argc, char *argv[]) {
 
+    int main_port = atoi(argv[4]);
+    int logger_port = atoi(argv[5]);
+
+    MYPORT = main_port;
+    LOG_PORT = logger_port;
+
     pthread_t tid;
     pthread_create(&tid, NULL, logThread, NULL);
 
@@ -303,20 +309,6 @@ int main(int argc, char *argv[]) {
             }
             printf("Принято байт %d\n", numbytes);
 
-            // write to pipe
-            int fd;
-            if ((fd = open(name, O_WRONLY)) == -1) {
-                perror("open");
-                exit(EXIT_FAILURE);
-            }
-            char str[100] = {0};
-            sprintf(str, "Принято от студента %d: %d %d %d %d",  buf[K+1], buf[0], buf[1], buf[2], buf[3]);
-            if (write(fd, str, sizeof(str)) == -1) {
-                perror("write");
-                exit(EXIT_FAILURE);
-            }
-            close(fd);
-
             printf("Принято от студента %d:", buf[K+1]);
             for(int i = 0; i < K; i++) {
                 printf(" %d", buf[i]);
@@ -338,6 +330,23 @@ int main(int argc, char *argv[]) {
             for(int i = 0; i < K; i++) {
                 msg[i] = array[shm_array[0]*K + i];
             }
+
+            // write to pipe
+            int fd;
+            if ((fd = open(name, O_WRONLY)) == -1) {
+                perror("open");
+                exit(EXIT_FAILURE);
+            }
+            char str[100] = {0};
+            sprintf(str, "Принято от студента %d: %d %d %d %d\nОтправлено студенту %d: %d %d %d %d",  
+                buf[K+1], buf[0], buf[1], buf[2], buf[3],
+                buf[K+1], msg[0], msg[1], msg[2], msg[3]);
+
+            if (write(fd, str, sizeof(str)) == -1) {
+                perror("write");
+                exit(EXIT_FAILURE);
+            }
+            close(fd);
 
 
             if (send(new_fd, msg, sizeof(msg), 0) == -1) {

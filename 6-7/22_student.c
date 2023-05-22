@@ -9,12 +9,15 @@
 #include <sys/socket.h>
 #include <time.h>
 
-#define PORT 3495 // порт соединения
+int PORT = 3495 // порт соединения
 
 #define MAXDATASIZE 100 // максимальный объем пакета
 
 int main(int argc, char *argv[])
 {
+    int port = atoi(argv[5]);
+    PORT = port;
+
     int sockfd, numbytes;  
     struct hostent *he;
     struct sockaddr_in their_addr; // адрес сервера
