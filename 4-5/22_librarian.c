@@ -65,13 +65,8 @@ int main(int argc, char *argv[]) {
     struct sigaction sa;
     int yes=1;
 
-    if ((sockfd = socket(PF_INET, SOCK_STREAM, 0)) == -1) {
+    if ((sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
         perror("socket");
-        exit(1);
-    }
-
-    if (setsockopt(sockfd,SOL_SOCKET,SO_REUSEADDR,&yes,sizeof(int)) == -1) {
-        perror("setsockopt");
         exit(1);
     }
     
